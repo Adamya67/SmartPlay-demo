@@ -160,6 +160,11 @@ function makeId(prefix: string) {
   return `${prefix}-${randomUUID().slice(0, 8)}`;
 }
 
+function makeAthleteSlug(name: string, userId: string) {
+  const base = slugify(name) || "athlete";
+  return `${base}-${userId.slice(-6)}`;
+}
+
 function asStringArray(value: Prisma.JsonValue | null | undefined) {
   return Array.isArray(value) ? value.map(String) : undefined;
 }
@@ -182,6 +187,291 @@ function asPrismaJson(value: unknown) {
 
 function iso(value: Date) {
   return value.toISOString();
+}
+
+function toStringList(value: unknown, fallback: string[]) {
+  if (Array.isArray(value)) {
+    return value.map(String).filter(Boolean);
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    return [value];
+  }
+
+  return fallback;
+}
+
+function buildAthleteProfileRecord(
+  userId: string,
+  name: string,
+  onboarding: Record<string, unknown>,
+  createdAt: string,
+): DemoDatabase["athleteProfiles"][number] {
+  return {
+    id: makeId("athlete-profile"),
+    userId,
+    slug: makeAthleteSlug(name, userId),
+    age: Number(onboarding.age ?? 16),
+    schoolClub: String(onboarding.schoolClub ?? "Independent athlete"),
+    graduationYear: Number(onboarding.graduationYear ?? new Date().getFullYear() + 2),
+    primarySport: String(onboarding.primarySport ?? "Soccer"),
+    position: String(onboarding.position ?? "Midfielder"),
+    dominantFoot: String(onboarding.dominantFoot ?? "Right"),
+    heightCm: onboarding.heightCm ? Number(onboarding.heightCm) : null,
+    weightKg: onboarding.weightKg ? Number(onboarding.weightKg) : null,
+    goals: toStringList(onboarding.goals, ["Improve consistently"]),
+    skillLevel: String(onboarding.skillLevel ?? "Developing"),
+    equipmentAccess: toStringList(onboarding.equipmentAccess, ["Ball only"]),
+    trainingFrequency: String(onboarding.trainingFrequency ?? "4 sessions weekly"),
+    dietaryPreferences: toStringList(onboarding.dietaryPreferences, ["Balanced"]),
+    injuryHistory: onboarding.injuryHistory ? String(onboarding.injuryHistory) : null,
+    targetMetrics: Array.isArray(onboarding.targetMetrics)
+      ? (onboarding.targetMetrics as Array<{ label: string; target: string; unit?: string }>)
+      : [],
+    bio: String(
+      onboarding.bio ??
+        "SmartPlay athlete profile created from secure sign-in. Complete onboarding to personalize your dashboard.",
+    ),
+    club: String(onboarding.schoolClub ?? onboarding.club ?? "Independent"),
+    topStats: [],
+    highlightVideoUrl: null,
+    homeTrainingPriority: Boolean(onboarding.homeTrainingPriority ?? true),
+    createdAt,
+    updatedAt: createdAt,
+  };
+}
+
+function buildCoachProfileRecord(
+  userId: string,
+  onboarding: Record<string, unknown>,
+  createdAt: string,
+): DemoDatabase["coachProfiles"][number] {
+  return {
+    id: makeId("coach-profile"),
+    userId,
+    teamName: String(onboarding.teamName ?? "SmartPlay Team"),
+    ageGroup: String(onboarding.ageGroup ?? "U17"),
+    coachingRole: String(onboarding.coachingRole ?? "Coach"),
+    organization: String(onboarding.organization ?? "Community Club"),
+    athletesCoached: Number(onboarding.athletesCoached ?? 12),
+    philosophy:
+      "Train smarter, keep access practical, and help every athlete feel seen.",
+    createdAt,
+    updatedAt: createdAt,
+  };
+}
+
+function buildParentProfileRecord(
+  userId: string,
+  onboarding: Record<string, unknown>,
+  createdAt: string,
+): DemoDatabase["parentProfiles"][number] {
+  return {
+    id: makeId("parent-profile"),
+    userId,
+    relation: String(onboarding.relation ?? "Parent"),
+    athleteNames: toStringList(onboarding.athleteNames, ["Athlete"]),
+    goals: toStringList(onboarding.goals, ["Monitor progress"]),
+    createdAt,
+    updatedAt: createdAt,
+  };
+}
+
+async function persistUserWithRoleProfile(
+  user: AppUserRecord,
+  onboarding: Record<string, unknown>,
+) {
+  const athleteProfile =
+    user.role === "athlete"
+      ? buildAthleteProfileRecord(user.id, user.name, onboarding, user.createdAt)
+      : null;
+  const coachProfile =
+    user.role === "coach"
+      ? buildCoachProfileRecord(user.id, onboarding, user.createdAt)
+      : null;
+  const parentProfile =
+    user.role === "parent"
+      ? buildParentProfileRecord(user.id, onboarding, user.createdAt)
+      : null;
+
+  if (isDemoMode()) {
+    const database = await readDemoDatabase();
+    database.users.push(user);
+
+    if (athleteProfile) {
+      database.athleteProfiles.push(athleteProfile);
+    }
+
+    if (coachProfile) {
+      database.coachProfiles.push(coachProfile);
+    }
+
+    if (parentProfile) {
+      database.parentProfiles.push(parentProfile);
+    }
+
+    await writeDemoDatabase(database);
+    return;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.create({
+      data: {
+        ...user,
+        image: user.image ?? null,
+        linkedAthleteIds: user.linkedAthleteIds ?? Prisma.JsonNull,
+        createdAt: new Date(user.createdAt),
+        updatedAt: new Date(user.updatedAt),
+      },
+    });
+
+    if (athleteProfile) {
+      await tx.athleteProfile.create({
+        data: {
+          ...athleteProfile,
+          targetMetrics: asPrismaJson(athleteProfile.targetMetrics),
+          topStats: asPrismaJson(athleteProfile.topStats),
+          highlightVideoUrl: athleteProfile.highlightVideoUrl ?? null,
+          createdAt: new Date(athleteProfile.createdAt),
+          updatedAt: new Date(athleteProfile.updatedAt),
+        },
+      });
+    }
+
+    if (coachProfile) {
+      await tx.coachProfile.create({
+        data: {
+          ...coachProfile,
+          createdAt: new Date(coachProfile.createdAt),
+          updatedAt: new Date(coachProfile.updatedAt),
+        },
+      });
+    }
+
+    if (parentProfile) {
+      await tx.parentProfile.create({
+        data: {
+          ...parentProfile,
+          createdAt: new Date(parentProfile.createdAt),
+          updatedAt: new Date(parentProfile.updatedAt),
+        },
+      });
+    }
+  });
+}
+
+async function ensureUserRoleProfile(user: AppUserRecord) {
+  if (user.role === "admin") {
+    return;
+  }
+
+  const onboarding =
+    user.role === "athlete"
+      ? {
+          schoolClub: user.city ?? "Independent athlete",
+          bio: "SmartPlay athlete profile created from secure sign-in. Complete onboarding to personalize your dashboard.",
+        }
+      : {};
+
+  if (isDemoMode()) {
+    const database = await readDemoDatabase();
+    let changed = false;
+
+    if (
+      user.role === "athlete" &&
+      !database.athleteProfiles.some((profile) => profile.userId === user.id)
+    ) {
+      database.athleteProfiles.push(
+        buildAthleteProfileRecord(user.id, user.name, onboarding, user.createdAt),
+      );
+      changed = true;
+    }
+
+    if (
+      user.role === "coach" &&
+      !database.coachProfiles.some((profile) => profile.userId === user.id)
+    ) {
+      database.coachProfiles.push(
+        buildCoachProfileRecord(user.id, onboarding, user.createdAt),
+      );
+      changed = true;
+    }
+
+    if (
+      user.role === "parent" &&
+      !database.parentProfiles.some((profile) => profile.userId === user.id)
+    ) {
+      database.parentProfiles.push(
+        buildParentProfileRecord(user.id, onboarding, user.createdAt),
+      );
+      changed = true;
+    }
+
+    if (changed) {
+      await writeDemoDatabase(database);
+    }
+
+    return;
+  }
+
+  if (user.role === "athlete") {
+    const existing = await prisma.athleteProfile.findUnique({
+      where: { userId: user.id },
+      select: { userId: true },
+    });
+
+    if (!existing) {
+      const profile = buildAthleteProfileRecord(user.id, user.name, onboarding, user.createdAt);
+      await prisma.athleteProfile.create({
+        data: {
+          ...profile,
+          targetMetrics: asPrismaJson(profile.targetMetrics),
+          topStats: asPrismaJson(profile.topStats),
+          highlightVideoUrl: profile.highlightVideoUrl ?? null,
+          createdAt: new Date(profile.createdAt),
+          updatedAt: new Date(profile.updatedAt),
+        },
+      });
+    }
+
+    return;
+  }
+
+  if (user.role === "coach") {
+    const existing = await prisma.coachProfile.findUnique({
+      where: { userId: user.id },
+      select: { userId: true },
+    });
+
+    if (!existing) {
+      const profile = buildCoachProfileRecord(user.id, onboarding, user.createdAt);
+      await prisma.coachProfile.create({
+        data: {
+          ...profile,
+          createdAt: new Date(profile.createdAt),
+          updatedAt: new Date(profile.updatedAt),
+        },
+      });
+    }
+
+    return;
+  }
+
+  const existing = await prisma.parentProfile.findUnique({
+    where: { userId: user.id },
+    select: { userId: true },
+  });
+
+  if (!existing) {
+    const profile = buildParentProfileRecord(user.id, onboarding, user.createdAt);
+    await prisma.parentProfile.create({
+      data: {
+        ...profile,
+        createdAt: new Date(profile.createdAt),
+        updatedAt: new Date(profile.updatedAt),
+      },
+    });
+  }
 }
 
 async function loadDatabaseFromPrisma(): Promise<DemoDatabase> {
@@ -1344,95 +1634,50 @@ export async function registerUser(input: RegisterInput) {
     updatedAt: createdAt,
   };
 
-  if (isDemoMode()) {
-    const database = await readDemoDatabase();
-    database.users.push(newUser);
+  await persistUserWithRoleProfile(newUser, input.onboarding);
 
-    if (input.role === "athlete") {
-      database.athleteProfiles.push({
-        id: makeId("athlete-profile"),
-        userId,
-        slug: slugify(input.name),
-        age: Number(input.onboarding.age ?? 16),
-        schoolClub: String(input.onboarding.schoolClub ?? "Local club"),
-        graduationYear: Number(input.onboarding.graduationYear ?? new Date().getFullYear() + 2),
-        primarySport: String(input.onboarding.primarySport ?? "Soccer"),
-        position: String(input.onboarding.position ?? "Midfielder"),
-        dominantFoot: String(input.onboarding.dominantFoot ?? "Right"),
-        heightCm: input.onboarding.heightCm ? Number(input.onboarding.heightCm) : null,
-        weightKg: input.onboarding.weightKg ? Number(input.onboarding.weightKg) : null,
-        goals: Array.isArray(input.onboarding.goals)
-          ? (input.onboarding.goals as string[])
-          : [String(input.onboarding.goals ?? "Improve consistently")],
-        skillLevel: String(input.onboarding.skillLevel ?? "Developing"),
-        equipmentAccess: Array.isArray(input.onboarding.equipmentAccess)
-          ? (input.onboarding.equipmentAccess as string[])
-          : [String(input.onboarding.equipmentAccess ?? "Ball only")],
-        trainingFrequency: String(input.onboarding.trainingFrequency ?? "4 sessions weekly"),
-        dietaryPreferences: Array.isArray(input.onboarding.dietaryPreferences)
-          ? (input.onboarding.dietaryPreferences as string[])
-          : [String(input.onboarding.dietaryPreferences ?? "Balanced")],
-        injuryHistory: input.onboarding.injuryHistory
-          ? String(input.onboarding.injuryHistory)
-          : null,
-        targetMetrics: Array.isArray(input.onboarding.targetMetrics)
-          ? (input.onboarding.targetMetrics as Array<{
-              label: string;
-              target: string;
-              unit?: string;
-            }>)
-          : [],
-        bio: "New SmartPlay athlete profile.",
-        club: String(input.onboarding.schoolClub ?? "Independent"),
-        topStats: [],
-        highlightVideoUrl: null,
-        homeTrainingPriority: Boolean(input.onboarding.homeTrainingPriority ?? true),
-        createdAt,
-        updatedAt: createdAt,
-      });
-    }
+  return newUser;
+}
 
-    if (input.role === "coach") {
-      database.coachProfiles.push({
-        id: makeId("coach-profile"),
-        userId,
-        teamName: String(input.onboarding.teamName ?? "SmartPlay Team"),
-        ageGroup: String(input.onboarding.ageGroup ?? "U17"),
-        coachingRole: String(input.onboarding.coachingRole ?? "Coach"),
-        organization: String(input.onboarding.organization ?? "Community Club"),
-        athletesCoached: Number(input.onboarding.athletesCoached ?? 12),
-        philosophy:
-          "Train smarter, keep access practical, and help every athlete feel seen.",
-        createdAt,
-        updatedAt: createdAt,
-      });
-    }
+export async function ensureGoogleUser(input: {
+  email: string;
+  name?: string | null;
+  image?: string | null;
+}) {
+  const existingUser = await findUserByEmail(input.email);
 
-    if (input.role === "parent") {
-      database.parentProfiles.push({
-        id: makeId("parent-profile"),
-        userId,
-        relation: String(input.onboarding.relation ?? "Parent"),
-        athleteNames: Array.isArray(input.onboarding.athleteNames)
-          ? (input.onboarding.athleteNames as string[])
-          : [String(input.onboarding.athleteNames ?? "Athlete")],
-        goals: Array.isArray(input.onboarding.goals)
-          ? (input.onboarding.goals as string[])
-          : [String(input.onboarding.goals ?? "Monitor progress")],
-        createdAt,
-        updatedAt: createdAt,
-      });
-    }
-
-    await writeDemoDatabase(database);
-  } else {
-    await prisma.user.create({
-      data: {
-        ...newUser,
-        linkedAthleteIds: newUser.linkedAthleteIds ?? Prisma.JsonNull,
-      },
-    });
+  if (existingUser) {
+    await ensureUserRoleProfile(existingUser);
+    return existingUser;
   }
+
+  const createdAt = new Date().toISOString();
+  const newUser: AppUserRecord = {
+    id: makeId("user"),
+    name: input.name?.trim() || input.email.split("@")[0],
+    email: input.email.toLowerCase(),
+    passwordHash: await bcrypt.hash(randomUUID(), 10),
+    image: input.image ?? null,
+    role: "athlete",
+    onboardingCompleted: false,
+    linkedAthleteIds: undefined,
+    profileCompletion: 24,
+    city: undefined,
+    createdAt,
+    updatedAt: createdAt,
+  };
+
+  await persistUserWithRoleProfile(newUser, {
+    primarySport: "Soccer",
+    position: "Midfielder",
+    dominantFoot: "Right",
+    schoolClub: "Independent athlete",
+    goals: ["Complete onboarding", "Log first training week"],
+    equipmentAccess: ["Ball only"],
+    dietaryPreferences: ["Balanced"],
+    trainingFrequency: "3 sessions weekly",
+    homeTrainingPriority: true,
+  });
 
   return newUser;
 }

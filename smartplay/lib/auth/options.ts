@@ -4,7 +4,7 @@ import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
-import { findUserByEmail } from "@/lib/data/service";
+import { ensureGoogleUser, findUserByEmail } from "@/lib/data/service";
 
 const credentialsSchema = z.object({
   email: z.email(),
@@ -40,6 +40,12 @@ const providers: NextAuthOptions["providers"] = [
         return null;
       }
 
+      await ensureGoogleUser({
+        email: user.email,
+        name: user.name,
+        image: user.image ?? null,
+      });
+
       return {
         id: user.id,
         email: user.email,
@@ -71,11 +77,48 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   providers,
   callbacks: {
+    async signIn({ user, account, profile }) {
+      if (account?.provider !== "google") {
+        return true;
+      }
+
+      const email = user.email ?? profile?.email;
+
+      if (!email) {
+        return false;
+      }
+
+      const appUser = await ensureGoogleUser({
+        email,
+        name: user.name ?? profile?.name ?? null,
+        image: user.image ?? null,
+      });
+
+      user.id = appUser.id;
+      user.email = appUser.email;
+      user.name = appUser.name;
+      user.image = appUser.image ?? user.image;
+      user.role = appUser.role;
+      user.onboardingCompleted = appUser.onboardingCompleted;
+
+      return true;
+    },
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;
         token.onboardingCompleted = user.onboardingCompleted;
+        return token;
+      }
+
+      if (!token.id && token.email) {
+        const appUser = await findUserByEmail(token.email);
+
+        if (appUser) {
+          token.id = appUser.id;
+          token.role = appUser.role;
+          token.onboardingCompleted = appUser.onboardingCompleted;
+        }
       }
 
       return token;
