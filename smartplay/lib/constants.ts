@@ -107,29 +107,6 @@ export const faqItems = [
   },
 ];
 
-export const demoAccounts = [
-  {
-    role: "Athlete",
-    email: "athlete.maya@smartplay.dev",
-    password: "SmartPlay123!",
-  },
-  {
-    role: "Coach",
-    email: "coach.lena@smartplay.dev",
-    password: "SmartPlay123!",
-  },
-  {
-    role: "Parent",
-    email: "parent.nicole@smartplay.dev",
-    password: "SmartPlay123!",
-  },
-  {
-    role: "Admin",
-    email: "admin@smartplay.dev",
-    password: "SmartPlay123!",
-  },
-];
-
 export const roleNavigation: Record<
   AppRole,
   Array<{ label: string; href: string }>

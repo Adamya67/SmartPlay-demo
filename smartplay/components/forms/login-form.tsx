@@ -1,19 +1,18 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { demoAccounts } from "@/lib/constants";
 
 const loginSchema = z.object({
   email: z.email(),
@@ -28,8 +27,8 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: demoAccounts[0].email,
-      password: demoAccounts[0].password,
+      email: "",
+      password: "",
     },
   });
 
@@ -59,11 +58,22 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
         <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
           <div>
             <Label htmlFor="email">Email</Label>
-            <Input id="email" {...form.register("email")} />
+            <Input
+              id="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              {...form.register("email")}
+            />
           </div>
           <div>
             <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" {...form.register("password")} />
+            <Input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              placeholder="Enter your password"
+              {...form.register("password")}
+            />
           </div>
           <Button disabled={loading} type="submit">
             {loading ? <Loader2 className="size-4 animate-spin" /> : null}
@@ -82,22 +92,22 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
       </Card>
 
       <Card className="bg-slate-950 text-white">
-        <div className="text-xs uppercase tracking-[0.24em] text-lime-200">Demo accounts</div>
-        <div className="mt-5 space-y-3">
-          {demoAccounts.map((account) => (
-            <button
-              key={account.role}
-              type="button"
-              onClick={() => {
-                form.setValue("email", account.email);
-                form.setValue("password", account.password);
-              }}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 p-4 text-left transition hover:bg-white/10"
-            >
-              <div className="font-medium">{account.role}</div>
-              <div className="mt-2 text-sm text-slate-300">{account.email}</div>
-            </button>
-          ))}
+        <div className="text-xs uppercase tracking-[0.24em] text-lime-200">
+          Secure access
+        </div>
+        <div className="mt-5 space-y-4 text-sm text-slate-300">
+          <p>
+            Sign in with the credentials created during signup or provided by your
+            coach, club, or organization.
+          </p>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            Athlete, coach, parent, and admin experiences are permission-aware and
+            open only after authentication.
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            Need access? Create an account or request an invite from your SmartPlay
+            team lead.
+          </div>
         </div>
       </Card>
     </div>

@@ -52,7 +52,7 @@ export function MarketingHero() {
               </Link>
             </Button>
             <Button asChild variant="secondary" size="lg">
-              <Link href="/login">Explore demo accounts</Link>
+              <Link href="/login">Sign in</Link>
             </Button>
           </motion.div>
           <div className="mt-10 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

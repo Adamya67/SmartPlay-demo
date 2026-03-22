@@ -20,7 +20,7 @@ export default function LoginPage() {
             Step into SmartPlay
           </h1>
           <p className="mt-4 text-lg text-slate-600 dark:text-slate-300">
-            Use a demo account or sign in with your own credentials to view athlete, coach, parent, or admin experiences.
+            Sign in to access your athlete, coach, parent, or admin workspace.
           </p>
           <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
             No account yet? <Link className="underline" href="/signup">Create one here</Link>.
