@@ -1,0 +1,498 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  athlete
+  coach
+  parent
+  admin
+}
+
+enum TeamRole {
+  coach
+  athlete
+  parent
+}
+
+enum SessionType {
+  team_practice
+  individual_training
+  match
+  gym_workout
+  conditioning
+  recovery
+  technical_drill
+  film_review
+  mobility
+}
+
+enum GoalCategory {
+  performance
+  fitness
+  nutrition
+  wellness
+  academic_balance
+  recruiting
+}
+
+enum GoalStatus {
+  on_track
+  at_risk
+  completed
+}
+
+enum VideoType {
+  shooting
+  passing
+  game_footage
+  defending
+  sprint_form
+}
+
+enum VideoAnalysisStatus {
+  pending
+  completed
+  fallback
+  failed
+}
+
+enum NotificationType {
+  goal_deadline
+  coach_comment
+  drill_assignment
+  missed_check_in
+  low_readiness
+  streak
+  session_reminder
+}
+
+enum CalendarEventType {
+  team_practice
+  individual_training
+  match
+  gym_workout
+  conditioning
+  recovery
+  technical_drill
+  film_review
+  mobility
+  reminder
+  team_event
+}
+
+enum AIInsightCategory {
+  training
+  nutrition
+  wellness
+  mental
+  goal
+}
+
+model User {
+  id                  String             @id
+  name                String
+  email               String             @unique
+  passwordHash        String
+  image               String?
+  role                Role
+  onboardingCompleted Boolean            @default(false)
+  linkedAthleteIds    Json?
+  profileCompletion   Int                @default(0)
+  city                String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  athleteProfile      AthleteProfile?
+  coachProfile        CoachProfile?
+  parentProfile       ParentProfile?
+  athleteSessions     Session[]          @relation("AthleteSessions")
+  coachedSessions     Session[]          @relation("CoachSessions")
+  teamMemberships     TeamMember[]
+  coachedTeams        Team[]             @relation("TeamCoach")
+  goals               Goal[]
+  nutritionLogs       NutritionLog[]
+  wellnessChecks      WellnessCheck[]
+  mentalCheckIns      MentalCheckIn[]
+  journalEntries      JournalEntry[]
+  videoAssets         VideoAsset[]
+  videoComments       VideoComment[]
+  athleteAssignments  DrillAssignment[]  @relation("AthleteAssignments")
+  coachAssignments    DrillAssignment[]  @relation("CoachAssignments")
+  athleteComments     CoachComment[]     @relation("AthleteComments")
+  coachComments       CoachComment[]     @relation("CoachComments")
+  announcements       Announcement[]
+  notifications       Notification[]
+  achievementBadges   AchievementBadge[]
+  athleteCalendarEvents CalendarEvent[] @relation("AthleteCalendarEvents")
+  createdCalendarEvents CalendarEvent[] @relation("CreatedCalendarEvents")
+  aiInsights            AiInsight[]
+
+  @@index([role])
+}
+
+model AthleteProfile {
+  id                  String   @id
+  userId              String   @unique
+  slug                String   @unique
+  age                 Int
+  schoolClub          String
+  graduationYear      Int
+  primarySport        String
+  position            String
+  dominantFoot        String
+  heightCm            Int?
+  weightKg            Int?
+  goals               String[]
+  skillLevel          String
+  equipmentAccess     String[]
+  trainingFrequency   String
+  dietaryPreferences  String[]
+  injuryHistory       String?
+  targetMetrics       Json
+  bio                 String
+  club                String
+  topStats            Json
+  highlightVideoUrl   String?
+  homeTrainingPriority Boolean @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CoachProfile {
+  id              String   @id
+  userId          String   @unique
+  teamName        String
+  ageGroup        String
+  coachingRole    String
+  organization    String
+  athletesCoached Int
+  philosophy      String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ParentProfile {
+  id            String   @id
+  userId        String   @unique
+  relation      String
+  athleteNames  String[]
+  goals         String[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Team {
+  id           String       @id
+  name         String
+  ageGroup     String
+  organization String
+  logoUrl      String?
+  coachId      String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  coach        User         @relation("TeamCoach", fields: [coachId], references: [id], onDelete: Cascade)
+  members      TeamMember[]
+  sessions     Session[]
+  announcements Announcement[]
+  calendarEvents CalendarEvent[]
+}
+
+model TeamMember {
+  id        String   @id
+  teamId    String
+  userId    String
+  teamRole  TeamRole
+  createdAt DateTime @default(now())
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([userId])
+}
+
+model Session {
+  id              String        @id
+  athleteId       String
+  teamId          String?
+  coachId         String?
+  title           String
+  occurredAt      DateTime
+  durationMinutes Int
+  sessionType     SessionType
+  intensity       Int
+  rpe             Int
+  distanceKm      Float?
+  sprintCount     Int?
+  shotsTaken      Int?
+  passes          Int?
+  dribbles        Int?
+  touches         Int?
+  notes           String?
+  tags            String[]
+  weather         String?
+  location        String
+  mediaUrls       String[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  athlete         User          @relation("AthleteSessions", fields: [athleteId], references: [id], onDelete: Cascade)
+  coach           User?         @relation("CoachSessions", fields: [coachId], references: [id], onDelete: SetNull)
+  team            Team?         @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  metric          SessionMetric?
+  coachComments   CoachComment[]
+
+  @@index([athleteId, occurredAt])
+}
+
+model SessionMetric {
+  id               String   @id
+  sessionId        String   @unique
+  trainingLoad     Int
+  caloriesBurned   Int
+  sprintVolume     Int
+  skillCompletions Int
+  summary          String
+  aiFeedback       String
+  createdAt        DateTime @default(now())
+  session          Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model Goal {
+  id          String          @id
+  athleteId   String
+  title       String
+  category    GoalCategory
+  targetValue Int
+  currentValue Int
+  unit        String
+  deadline    DateTime
+  notes       String?
+  status      GoalStatus
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  athlete     User            @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  milestones  GoalMilestone[]
+
+  @@index([athleteId, deadline])
+}
+
+model GoalMilestone {
+  id          String   @id
+  goalId      String
+  title       String
+  targetValue Int
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  goal        Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId])
+}
+
+model NutritionLog {
+  id          String   @id
+  athleteId   String
+  loggedAt    DateTime
+  mealName    String
+  calories    Int
+  protein     Int
+  carbs       Int
+  fats        Int
+  hydrationMl Int
+  notes       String?
+  createdAt   DateTime @default(now())
+  athlete     User     @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@index([athleteId, loggedAt])
+}
+
+model WellnessCheck {
+  id                  String   @id
+  athleteId           String
+  checkedAt           DateTime
+  sleepHours          Float
+  sleepQuality        Int
+  soreness            Int
+  fatigue             Int
+  stress              Int
+  energy              Int
+  mood                Int
+  hydration           Int
+  painFlag            Boolean
+  injuryStatus        String?
+  readinessScore      Int
+  recoverySuggestions String[]
+  createdAt           DateTime @default(now())
+  athlete             User     @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@index([athleteId, checkedAt])
+}
+
+model MentalCheckIn {
+  id         String   @id
+  athleteId  String
+  checkedAt  DateTime
+  confidence Int
+  focus      Int
+  anxiety    Int
+  motivation Int
+  prompt     String
+  createdAt  DateTime @default(now())
+  athlete    User     @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@index([athleteId, checkedAt])
+}
+
+model JournalEntry {
+  id        String   @id
+  athleteId String
+  createdAt DateTime @default(now())
+  title     String
+  content   String
+  tag       String
+  athlete   User     @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@index([athleteId, createdAt])
+}
+
+model VideoAsset {
+  id             String              @id
+  athleteId      String
+  title          String
+  videoType      VideoType
+  fileUrl        String
+  mimeType       String?
+  thumbnailUrl   String?
+  thumbnails     String[]
+  durationSeconds Int?
+  notes          String?
+  tags           String[]
+  timestamps     Json
+  analysisStatus VideoAnalysisStatus @default(pending)
+  analysis       Json?
+  createdAt      DateTime            @default(now())
+  athlete        User                @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  comments       VideoComment[]
+
+  @@index([athleteId, createdAt])
+}
+
+model VideoComment {
+  id             String    @id
+  videoId         String
+  authorId        String
+  content         String
+  strengthTag     String?
+  improvementTag  String?
+  createdAt       DateTime @default(now())
+  video           VideoAsset @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  author          User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([videoId, createdAt])
+}
+
+model DrillAssignment {
+  id          String   @id
+  athleteId   String
+  coachId     String
+  title       String
+  description String
+  dueDate     DateTime
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  athlete     User     @relation("AthleteAssignments", fields: [athleteId], references: [id], onDelete: Cascade)
+  coach       User     @relation("CoachAssignments", fields: [coachId], references: [id], onDelete: Cascade)
+
+  @@index([athleteId, dueDate])
+}
+
+model CoachComment {
+  id        String   @id
+  athleteId String
+  coachId   String
+  sessionId String?
+  content   String
+  createdAt DateTime @default(now())
+  athlete   User     @relation("AthleteComments", fields: [athleteId], references: [id], onDelete: Cascade)
+  coach     User     @relation("CoachComments", fields: [coachId], references: [id], onDelete: Cascade)
+  session   Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([athleteId, createdAt])
+}
+
+model Announcement {
+  id        String   @id
+  teamId    String
+  authorId  String
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, createdAt])
+}
+
+model Notification {
+  id        String           @id
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model AchievementBadge {
+  id          String   @id
+  athleteId   String
+  title       String
+  description String
+  icon        String
+  earnedAt    DateTime
+  athlete     User     @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@index([athleteId, earnedAt])
+}
+
+model CalendarEvent {
+  id          String            @id
+  athleteId   String?
+  teamId      String?
+  creatorId   String
+  title       String
+  description String?
+  startsAt    DateTime
+  endsAt      DateTime
+  eventType   CalendarEventType
+  completed   Boolean           @default(false)
+  createdAt   DateTime          @default(now())
+  athlete     User?             @relation("AthleteCalendarEvents", fields: [athleteId], references: [id], onDelete: SetNull)
+  team        Team?             @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  creator     User              @relation("CreatedCalendarEvents", fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@index([creatorId, startsAt])
+  @@index([teamId, startsAt])
+  @@index([athleteId, startsAt])
+}
+
+model AiInsight {
+  id        String            @id
+  athleteId String
+  category  AIInsightCategory
+  title     String
+  content   String
+  createdAt DateTime          @default(now())
+  athlete   User              @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+
+  @@index([athleteId, createdAt])
+}
