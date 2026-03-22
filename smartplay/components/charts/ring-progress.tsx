@@ -12,8 +12,8 @@ export function RingProgress({
   const offset = circumference - (Math.min(value, 100) / 100) * circumference;
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      <svg className="size-28 -rotate-90" viewBox="0 0 110 110">
+    <div className="relative flex items-center justify-center">
+      <svg className="size-32 -rotate-90" viewBox="0 0 110 110">
         <circle
           cx="55"
           cy="55"
@@ -34,9 +34,11 @@ export function RingProgress({
           strokeLinecap="round"
         />
       </svg>
-      <div className="-mt-20 text-center">
-        <div className="font-display text-3xl font-semibold text-white">{value}%</div>
-        <div className="text-xs text-slate-400">{label}</div>
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+        <div className="font-display text-4xl font-semibold text-white">{value}%</div>
+        <div className="mt-2 max-w-24 text-xs leading-tight text-slate-400">
+          {label}
+        </div>
       </div>
     </div>
   );
