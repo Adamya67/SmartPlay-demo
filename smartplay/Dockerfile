@@ -2,6 +2,7 @@ FROM node:22-bullseye-slim AS deps
 WORKDIR /app
 ENV DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/smartplay?schema=public
 COPY package.json package-lock.json ./
+COPY prisma ./prisma
 RUN npm ci
 
 FROM node:22-bullseye-slim AS builder
