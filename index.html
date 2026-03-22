@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StrikerFuel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Soccer Performance Dashboard</p>
+          <h1>Track fuel, training, and the next move that helps your game.</h1>
+          <p class="hero-text">
+            StrikerFuel gives soccer players one clean daily workflow: set your
+            profile, log meals and sessions, auto-fill common foods like Rice
+            Krispies Treats, and get recommendations based on training load,
+            position, and whether you eat meat.
+          </p>
+          <div class="hero-badges">
+            <span>Food lookup with macro autofill</span>
+            <span>Position-based training suggestions</span>
+            <span>Daily nutrition gap analysis</span>
+          </div>
+        </div>
+
+        <section class="hero-panel card">
+          <div class="section-heading compact-heading">
+            <div>
+              <p class="eyebrow">Profile</p>
+              <h2>Player setup</h2>
+            </div>
+            <p class="muted small-copy">This tunes food and workout advice.</p>
+          </div>
+          <form id="profile-form" class="stack-form">
+            <label>
+              Name
+              <input id="player-name" name="playerName" type="text" placeholder="Ava Martinez" required />
+            </label>
+            <label>
+              Position
+              <select id="position" name="position">
+                <option>Forward</option>
+                <option>Midfielder</option>
+                <option>Defender</option>
+                <option>Goalkeeper</option>
+              </select>
+            </label>
+            <label>
+              Can you eat meat?
+              <select id="meat-preference" name="meatPreference">
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </label>
+            <label>
+              Training intensity today
+              <select id="intensity" name="intensity">
+                <option value="high">High</option>
+                <option value="moderate">Moderate</option>
+                <option value="light">Light</option>
+                <option value="recovery">Recovery</option>
+              </select>
+            </label>
+            <button type="submit">Save player profile</button>
+          </form>
+        </section>
+      </header>
+
+      <main class="dashboard">
+        <section class="card section-wide">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Overview</p>
+              <h2>Daily performance board</h2>
+            </div>
+            <p id="welcome-message" class="muted">
+              Set up your profile to unlock recommendations.
+            </p>
+          </div>
+
+          <div class="stats-grid">
+            <article class="stat">
+              <span class="stat-label">Calories</span>
+              <strong id="calories-total">0</strong>
+              <span class="stat-detail" id="calories-target">Target 0 kcal</span>
+              <div class="progress-bar"><span id="calories-fill"></span></div>
+            </article>
+            <article class="stat">
+              <span class="stat-label">Protein</span>
+              <strong id="protein-total">0 g</strong>
+              <span class="stat-detail" id="protein-target">Target 0 g</span>
+              <div class="progress-bar"><span id="protein-fill"></span></div>
+            </article>
+            <article class="stat">
+              <span class="stat-label">Carbs</span>
+              <strong id="carbs-total">0 g</strong>
+              <span class="stat-detail" id="carbs-target">Target 0 g</span>
+              <div class="progress-bar"><span id="carbs-fill"></span></div>
+            </article>
+            <article class="stat">
+              <span class="stat-label">Workload</span>
+              <strong id="workload-total">0 pts</strong>
+              <span class="stat-detail" id="workload-target">Target 0 pts</span>
+              <div class="progress-bar"><span id="workload-fill"></span></div>
+            </article>
+          </div>
+
+          <div class="overview-strip">
+            <article class="coach-note">
+              <p class="eyebrow">Today Focus</p>
+              <h3 id="coach-note-title">Build your day plan</h3>
+              <p id="coach-note-text" class="muted">
+                Start by saving your profile, then log food and workouts to get a
+                clear daily action plan.
+              </p>
+            </article>
+            <div class="overview-actions">
+              <button id="reset-day" class="ghost-button strong-ghost" type="button">Reset today</button>
+              <p class="muted small-copy">
+                Meals and workouts save automatically on this device.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Fuel</p>
+              <h2>Log meals</h2>
+            </div>
+            <p id="meal-helper" class="muted">
+              Type a food like Rice Krispies Treat, banana, chicken rice bowl, or
+              tofu rice bowl to auto-fill macros.
+            </p>
+          </div>
+
+          <form id="meal-form" class="stack-form">
+            <label>
+              Food or meal
+              <input
+                id="meal-name"
+                name="mealName"
+                type="text"
+                placeholder="Rice Krispies Treat"
+                list="food-options"
+                autocomplete="off"
+                required
+              />
+              <datalist id="food-options"></datalist>
+            </label>
+
+            <article id="food-match" class="match-card">
+              <p class="muted">Start typing to see smart macro matches.</p>
+            </article>
+
+            <div>
+              <div class="row-label">
+                <span class="muted">Suggested foods for today</span>
+              </div>
+              <div id="food-suggestions" class="chip-row"></div>
+            </div>
+
+            <div class="macro-grid">
+              <label>
+                Servings
+                <input id="meal-servings" name="servings" type="number" min="0.5" step="0.5" value="1" required />
+              </label>
+              <label>
+                Calories
+                <input id="meal-calories" name="calories" type="number" min="0" placeholder="90" required />
+              </label>
+              <label>
+                Protein (g)
+                <input id="meal-protein" name="protein" type="number" min="0" placeholder="1" required />
+              </label>
+              <label>
+                Carbs (g)
+                <input id="meal-carbs" name="carbs" type="number" min="0" placeholder="17" required />
+              </label>
+              <label>
+                Fats (g)
+                <input id="meal-fats" name="fats" type="number" min="0" placeholder="2" required />
+              </label>
+            </div>
+
+            <label>
+              Key nutrient focus
+              <select id="meal-focus" name="focus">
+                <option value="none">General fuel</option>
+                <option value="iron">Iron</option>
+                <option value="calcium">Calcium</option>
+                <option value="omega3">Omega-3</option>
+                <option value="b12">Vitamin B12</option>
+                <option value="magnesium">Magnesium</option>
+              </select>
+            </label>
+
+            <button type="submit">Add meal to today</button>
+          </form>
+
+          <div id="meal-list" class="entry-list"></div>
+        </section>
+
+        <section class="card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Training</p>
+              <h2>Log workouts</h2>
+            </div>
+            <p class="muted">
+              Use a template or log your own session. Recommendations adapt to
+              your recent balance and workload.
+            </p>
+          </div>
+
+          <div>
+            <div class="row-label">
+              <span class="muted">Quick workout templates</span>
+            </div>
+            <div id="workout-templates" class="chip-row"></div>
+          </div>
+
+          <form id="workout-form" class="stack-form">
+            <label>
+              Workout name
+              <input id="workout-name" name="workoutName" type="text" placeholder="Acceleration + finishing" required />
+            </label>
+            <div class="inline-grid">
+              <label>
+                Category
+                <select id="workout-category" name="category">
+                  <option value="speed">Speed</option>
+                  <option value="strength">Strength</option>
+                  <option value="conditioning">Conditioning</option>
+                  <option value="mobility">Mobility</option>
+                  <option value="technical">Technical</option>
+                </select>
+              </label>
+              <label>
+                Duration (min)
+                <input id="workout-duration" name="duration" type="number" min="0" placeholder="55" required />
+              </label>
+              <label>
+                Effort 1-10
+                <input id="workout-effort" name="effort" type="number" min="1" max="10" placeholder="8" required />
+              </label>
+            </div>
+            <button type="submit">Add workout to today</button>
+          </form>
+
+          <div id="workout-list" class="entry-list"></div>
+        </section>
+
+        <section class="card analysis-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Analysis</p>
+              <h2>What you are lacking today</h2>
+            </div>
+          </div>
+          <div id="nutrition-analysis" class="analysis-list"></div>
+        </section>
+
+        <section class="card analysis-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Recommendations</p>
+              <h2>Best next workout</h2>
+            </div>
+          </div>
+          <div id="recommendation-list" class="analysis-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <template id="entry-template">
+      <article class="entry">
+        <div>
+          <h3 class="entry-title"></h3>
+          <p class="entry-subtitle"></p>
+        </div>
+        <button class="ghost-button" type="button">Remove</button>
+      </article>
+    </template>
+
+    <script src="script.js"></script>
+  </body>
+</html>
