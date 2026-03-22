@@ -22,7 +22,9 @@ export default function ContactPage() {
             <div className="font-display text-3xl font-semibold">
               Let’s build the athlete development stack that should already exist.
             </div>
-            <div className="mt-4 text-sm text-slate-300">founder@smartplay.app</div>
+            <div className="mt-4 text-sm text-slate-300">
+              contact.smartplay@gmail.com
+            </div>
             <div className="mt-2 text-sm text-slate-400">
               Pilots for clubs, schools, and access-focused programs.
             </div>
