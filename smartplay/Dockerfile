@@ -1,11 +1,13 @@
 FROM node:22-bullseye-slim AS deps
 WORKDIR /app
+ENV DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/smartplay?schema=public
 COPY package.json package-lock.json ./
 RUN npm ci
 
 FROM node:22-bullseye-slim AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/smartplay?schema=public
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
