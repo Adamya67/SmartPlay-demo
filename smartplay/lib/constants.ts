@@ -34,19 +34,19 @@ export const marketingFeatures = [
 
 export const testimonials = [
   {
-    name: "Maya J.",
+    name: "Anonymous athlete",
     role: "Varsity winger",
     quote:
       "This is the first app that makes my sessions, meals, and mindset check-ins feel connected instead of random.",
   },
   {
-    name: "Coach Lena B.",
+    name: "Anonymous coach",
     role: "Club coach",
     quote:
       "The readiness view and video review tools help me coach smarter without burying families in expensive software.",
   },
   {
-    name: "Nicole J.",
+    name: "Anonymous parent",
     role: "Parent",
     quote:
       "I can see the big picture without micromanaging. It helps me support recovery and nutrition in a useful way.",
