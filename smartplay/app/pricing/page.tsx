@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { pricingPlans } from "@/lib/constants";
 import { PublicFooter } from "@/components/marketing/public-footer";
 import { PublicHeader } from "@/components/marketing/public-header";
@@ -29,8 +31,10 @@ export default function PricingPage() {
                 ))}
               </div>
               <div className="mt-8">
-                <Button variant="secondary">
-                  {plan.name === "Athlete" ? "Start athlete access" : "Talk to SmartPlay"}
+                <Button asChild variant="secondary">
+                  <Link href={plan.name === "Athlete" ? "/billing/start" : "/contact"}>
+                    {plan.name === "Athlete" ? "Start athlete access" : "Talk to SmartPlay"}
+                  </Link>
                 </Button>
               </div>
             </Card>

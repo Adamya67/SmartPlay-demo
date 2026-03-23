@@ -82,6 +82,12 @@ export default async function SettingsPage({
               Checkout was canceled. Your athlete trial remains available until it ends.
             </div>
           ) : null}
+          {params.billing === "error" ? (
+            <div className="rounded-2xl border border-rose-400/30 bg-rose-400/10 p-4 text-sm text-rose-50">
+              SmartPlay could not start checkout. Recheck the billing environment
+              variables and Stripe configuration, then try again.
+            </div>
+          ) : null}
 
           <div className="grid gap-4 md:grid-cols-3">
             <div className="rounded-2xl border border-white/8 bg-white/5 p-4">

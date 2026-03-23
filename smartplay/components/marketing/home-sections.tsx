@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { faqItems, marketingFeatures, pricingPlans, testimonials } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -62,8 +64,10 @@ export function HomeSections() {
                 ))}
               </div>
               <div className="mt-8">
-                <Button variant="secondary">
-                  {plan.name === "Athlete" ? "Start athlete access" : `Estimate ${plan.name}`}
+                <Button asChild variant="secondary">
+                  <Link href={plan.name === "Athlete" ? "/billing/start" : "/contact"}>
+                    {plan.name === "Athlete" ? "Start athlete access" : `Estimate ${plan.name}`}
+                  </Link>
                 </Button>
               </div>
             </Card>
