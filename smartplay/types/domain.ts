@@ -62,6 +62,8 @@ export interface AppUserRecord {
   subscriptionPlan?: SubscriptionPlan | null;
   subscriptionPriceCents?: number | null;
   subscriptionRenewsAt?: string | null;
+  stripeCustomerId?: string | null;
+  stripeSubscriptionId?: string | null;
   createdAt: string;
   updatedAt: string;
 }

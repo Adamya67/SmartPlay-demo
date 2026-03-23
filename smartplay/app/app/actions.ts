@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { requireSession } from "@/lib/auth/session";
+import { createBillingPortalUrl, createPlayerCheckoutSession } from "@/lib/billing/service";
 import {
   createCalendarEventEntry,
   createCoachCommentEntry,
@@ -119,6 +121,18 @@ export async function createVideoCommentAction(
 }
 
 export async function startPlayerMembershipAction() {
+  const session = await requireSession();
+  const checkoutUrl = await createPlayerCheckoutSession(session.user.id);
+  redirect(checkoutUrl);
+}
+
+export async function openBillingPortalAction() {
+  const session = await requireSession();
+  const portalUrl = await createBillingPortalUrl(session.user.id);
+  redirect(portalUrl);
+}
+
+export async function startLocalPlayerMembershipAction() {
   const session = await requireSession();
   await startPlayerMembership(session.user.id);
   revalidatePath("/app");

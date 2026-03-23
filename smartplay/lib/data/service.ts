@@ -470,6 +470,8 @@ async function persistUserWithRoleProfile(
         subscriptionRenewsAt: user.subscriptionRenewsAt
           ? new Date(user.subscriptionRenewsAt)
           : null,
+        stripeCustomerId: user.stripeCustomerId ?? null,
+        stripeSubscriptionId: user.stripeSubscriptionId ?? null,
         createdAt: new Date(user.createdAt),
         updatedAt: new Date(user.updatedAt),
       },
@@ -572,6 +574,12 @@ async function updateUserRecord(
           : updates.subscriptionRenewsAt
             ? new Date(updates.subscriptionRenewsAt)
             : null,
+      stripeCustomerId:
+        updates.stripeCustomerId === undefined ? undefined : updates.stripeCustomerId,
+      stripeSubscriptionId:
+        updates.stripeSubscriptionId === undefined
+          ? undefined
+          : updates.stripeSubscriptionId,
       updatedAt: updates.updatedAt ? new Date(updates.updatedAt) : undefined,
     },
   });
@@ -587,6 +595,8 @@ async function updateUserRecord(
     subscriptionPlan: (updated.subscriptionPlan as SubscriptionPlan | null) ?? null,
     subscriptionPriceCents: updated.subscriptionPriceCents ?? null,
     subscriptionRenewsAt: asNullableIso(updated.subscriptionRenewsAt),
+    stripeCustomerId: updated.stripeCustomerId ?? null,
+    stripeSubscriptionId: updated.stripeSubscriptionId ?? null,
     createdAt: iso(updated.createdAt),
     updatedAt: iso(updated.updatedAt),
   };
@@ -792,6 +802,8 @@ async function loadDatabaseFromPrisma(): Promise<DemoDatabase> {
       subscriptionPlan: (user.subscriptionPlan as SubscriptionPlan | null) ?? null,
       subscriptionPriceCents: user.subscriptionPriceCents ?? null,
       subscriptionRenewsAt: asNullableIso(user.subscriptionRenewsAt),
+      stripeCustomerId: user.stripeCustomerId ?? null,
+      stripeSubscriptionId: user.stripeSubscriptionId ?? null,
       createdAt: iso(user.createdAt),
       updatedAt: iso(user.updatedAt),
     })),
@@ -1638,6 +1650,13 @@ export async function findUserById(userId: string) {
   return database.users.find((user) => user.id === userId) ?? null;
 }
 
+export async function findUserByStripeCustomerId(customerId: string) {
+  const database = await readDatabase();
+  return (
+    database.users.find((user) => user.stripeCustomerId === customerId) ?? null
+  );
+}
+
 export async function getMembershipSnapshot(userId: string) {
   const user = await ensureUserBillingState(userId);
   return buildMembershipSnapshot(user);
@@ -1664,6 +1683,63 @@ export async function startPlayerMembership(userId: string) {
   });
 
   return buildMembershipSnapshot(updatedUser);
+}
+
+export async function attachStripeCustomerToUser(userId: string, customerId: string) {
+  return updateUserRecord(userId, {
+    stripeCustomerId: customerId,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function syncStripeSubscriptionState(input: {
+  userId: string;
+  customerId?: string | null;
+  subscriptionId?: string | null;
+  currentPeriodEnd?: string | null;
+  stripeStatus: string;
+}) {
+  const user = await ensureUserBillingState(input.userId);
+  const now = new Date();
+  const currentPeriodEnd = input.currentPeriodEnd
+    ? parseISO(input.currentPeriodEnd)
+    : null;
+  const accessActive =
+    ["active", "trialing", "past_due"].includes(input.stripeStatus) &&
+    (!currentPeriodEnd || isAfter(currentPeriodEnd, now));
+
+  const updatedUser = await updateUserRecord(user.id, {
+    subscriptionStatus: accessActive ? "active" : "expired",
+    subscriptionPlan: accessActive ? PLAYER_MEMBERSHIP_PLAN : user.subscriptionPlan ?? null,
+    subscriptionPriceCents: accessActive
+      ? PLAYER_MEMBERSHIP_PRICE_CENTS
+      : user.subscriptionPriceCents ?? null,
+    subscriptionRenewsAt: input.currentPeriodEnd ?? null,
+    stripeCustomerId: input.customerId ?? user.stripeCustomerId ?? null,
+    stripeSubscriptionId: input.subscriptionId ?? user.stripeSubscriptionId ?? null,
+    updatedAt: iso(now),
+  });
+
+  return buildMembershipSnapshot(updatedUser);
+}
+
+export async function syncCheckoutCompletion(input: {
+  userId: string;
+  customerId?: string | null;
+  subscriptionId?: string | null;
+  currentPeriodEnd?: string | null;
+  paymentStatus?: string | null;
+}) {
+  const stripeStatus =
+    input.paymentStatus === "paid" || input.subscriptionId ? "active" : "expired";
+
+  return syncStripeSubscriptionState({
+    userId: input.userId,
+    customerId: input.customerId,
+    subscriptionId: input.subscriptionId,
+    currentPeriodEnd: input.currentPeriodEnd,
+    stripeStatus,
+  });
 }
 
 export async function getAthleteWorkspace(userId: string) {
@@ -1927,6 +2003,8 @@ export async function registerUser(input: RegisterInput) {
     subscriptionPlan: null,
     subscriptionPriceCents: null,
     subscriptionRenewsAt: null,
+    stripeCustomerId: null,
+    stripeSubscriptionId: null,
     createdAt,
     updatedAt: createdAt,
   };
@@ -1968,6 +2046,8 @@ export async function ensureGoogleUser(input: {
     subscriptionPlan: null,
     subscriptionPriceCents: null,
     subscriptionRenewsAt: null,
+    stripeCustomerId: null,
+    stripeSubscriptionId: null,
     createdAt,
     updatedAt: createdAt,
   };

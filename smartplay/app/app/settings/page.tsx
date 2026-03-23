@@ -1,7 +1,12 @@
-import { startPlayerMembershipAction } from "@/app/app/actions";
+import {
+  openBillingPortalAction,
+  startLocalPlayerMembershipAction,
+  startPlayerMembershipAction,
+} from "@/app/app/actions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { requireSession } from "@/lib/auth/session";
+import { finalizeCheckoutSession } from "@/lib/billing/service";
 import { getAthleteWorkspace, getMembershipSnapshot, getParentWorkspace } from "@/lib/data/service";
 import { Switch } from "@/components/ui/switch";
 import { formatLongDate } from "@/lib/utils/format";
@@ -14,10 +19,18 @@ type PreferenceItem = {
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ billing?: string }>;
+  searchParams?: Promise<{ billing?: string; session_id?: string }>;
 }) {
   const session = await requireSession();
+  const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
   const params = (await searchParams) ?? {};
+  if (
+    session.user.role === "athlete" &&
+    params.billing === "success" &&
+    params.session_id
+  ) {
+    await finalizeCheckoutSession(params.session_id, session.user.id);
+  }
   const settings =
     session.user.role === "athlete"
       ? (await getAthleteWorkspace(session.user.id)).settings.notificationPreferences
@@ -59,6 +72,16 @@ export default async function SettingsPage({
               continue using SmartPlay.
             </div>
           ) : null}
+          {params.billing === "success" ? (
+            <div className="rounded-2xl border border-lime-400/30 bg-lime-400/10 p-4 text-sm text-lime-50">
+              Payment received. Your Player Membership is now active.
+            </div>
+          ) : null}
+          {params.billing === "canceled" ? (
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
+              Checkout was canceled. Your athlete trial remains available until it ends.
+            </div>
+          ) : null}
 
           <div className="grid gap-4 md:grid-cols-3">
             <div className="rounded-2xl border border-white/8 bg-white/5 p-4">
@@ -92,13 +115,32 @@ export default async function SettingsPage({
           </div>
 
           {membership.status !== "active" ? (
-            <form action={startPlayerMembershipAction}>
-              <Button type="submit">Start Player Membership</Button>
-            </form>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              {stripeConfigured ? (
+                <form action={startPlayerMembershipAction}>
+                  <Button type="submit">Enter card details</Button>
+                </form>
+              ) : (
+                <form action={startLocalPlayerMembershipAction}>
+                  <Button type="submit">
+                    Activate locally
+                  </Button>
+                </form>
+              )}
+            </div>
           ) : (
-            <div className="rounded-2xl border border-white/8 bg-white/5 p-4 text-sm text-slate-300">
-              Coach and team pricing still stay estimate-only on the marketing site. The
-              only live paid plan right now is the athlete Player Membership.
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="rounded-2xl border border-white/8 bg-white/5 p-4 text-sm text-slate-300">
+                Coach and team pricing still stay estimate-only on the marketing site.
+                The only live paid plan right now is the athlete Player Membership.
+              </div>
+              {stripeConfigured ? (
+                <form action={openBillingPortalAction}>
+                  <Button type="submit" variant="secondary">
+                    Manage billing
+                  </Button>
+                </form>
+              ) : null}
             </div>
           )}
         </Card>

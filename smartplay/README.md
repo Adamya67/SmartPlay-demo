@@ -150,11 +150,16 @@ Key values:
 - `DATABASE_URL`: PostgreSQL connection string
 - `NEXTAUTH_URL`: app base URL
 - `NEXTAUTH_SECRET`: session secret
+- `NEXT_PUBLIC_APP_URL`: public app URL used for Stripe return redirects
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`: optional Google login
 - `OPENAI_API_KEY`: optional live AI provider key
 - `OPENAI_MODEL`: live model name
 - `OPENAI_TEXT_MODEL`: optional override for text coaching generations
 - `OPENAI_VISION_MODEL`: optional override for video review generations
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`: Stripe publishable key for future client billing flows
+- `STRIPE_SECRET_KEY`: Stripe secret key for checkout, portal, and webhook sync
+- `STRIPE_WEBHOOK_SECRET`: Stripe webhook signing secret for `/api/stripe/webhook`
+- `STRIPE_PLAYER_MONTHLY_PRICE_ID`: optional recurring price ID for Stripe-hosted catalog pricing; if blank, the app creates inline `$12/month` checkout pricing
 - `DEMO_MODE`: `"true"` for JSON demo storage, `"false"` for Postgres-backed mode
 - `UPLOAD_DIR`: local upload root under `public/`
 - `STORAGE_PROVIDER`: `"local"` or `"s3"`
@@ -196,6 +201,35 @@ Buckets currently used:
 - `logos`
 - `highlights`
 - `misc`
+
+## Billing
+
+SmartPlay now supports an athlete-first billing flow:
+
+- 14-day free trial for athlete accounts
+- `$12/month` Player Membership after the trial
+- Stripe Checkout for card entry
+- Stripe Customer Portal for active athlete billing management
+- Stripe webhook sync at `/api/stripe/webhook`
+
+For Stripe setup:
+
+1. Add `STRIPE_SECRET_KEY` and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+2. Set `NEXT_PUBLIC_APP_URL` to your deployed app URL
+3. Add a Stripe webhook endpoint pointing to:
+
+```text
+https://your-domain.com/api/stripe/webhook
+```
+
+4. Copy the Stripe webhook signing secret into `STRIPE_WEBHOOK_SECRET`
+
+Recommended Stripe events:
+
+- `checkout.session.completed`
+- `customer.subscription.created`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
 
 ## Project Structure
 
