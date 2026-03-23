@@ -56,9 +56,11 @@ export const testimonials = [
 export const pricingPlans = [
   {
     name: "Athlete",
-    price: "$12",
-    description: "Daily performance, wellness, nutrition, and AI coaching for individual athletes.",
+    price: "$12/mo",
+    description:
+      "Athlete access includes a 14-day free trial, then $12/month for the live Player Membership.",
     features: [
+      "14-day free trial",
       "Training dashboard",
       "Nutrition + wellness tracking",
       "Mental performance tools",
@@ -68,7 +70,8 @@ export const pricingPlans = [
   {
     name: "Team",
     price: "$69",
-    description: "Coach workflows, roster visibility, team sessions, and athlete review tools.",
+    description:
+      "Estimated coach/team pricing for future rollout. Not a live checkout plan yet.",
     features: [
       "Coach dashboard",
       "Team analytics",
@@ -79,7 +82,8 @@ export const pricingPlans = [
   {
     name: "Community",
     price: "Custom",
-    description: "For schools, nonprofits, and access-focused programs supporting many athletes.",
+    description:
+      "Estimated program pricing for schools, nonprofits, and access-focused deployments.",
     features: [
       "Parent visibility",
       "Admin reporting",

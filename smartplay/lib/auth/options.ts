@@ -4,7 +4,13 @@ import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
-import { ensureGoogleUser, findUserByEmail } from "@/lib/data/service";
+import {
+  ensureGoogleUser,
+  ensureUserBillingState,
+  findUserByEmail,
+  findUserById,
+  getMembershipSnapshot,
+} from "@/lib/data/service";
 
 const credentialsSchema = z.object({
   email: z.email(),
@@ -40,19 +46,25 @@ const providers: NextAuthOptions["providers"] = [
         return null;
       }
 
+      const billingReadyUser = await ensureUserBillingState(user);
       await ensureGoogleUser({
         email: user.email,
         name: user.name,
         image: user.image ?? null,
       });
+      const membership = await getMembershipSnapshot(billingReadyUser.id);
 
       return {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        image: user.image ?? undefined,
-        role: user.role,
-        onboardingCompleted: user.onboardingCompleted,
+        id: billingReadyUser.id,
+        email: billingReadyUser.email,
+        name: billingReadyUser.name,
+        image: billingReadyUser.image ?? undefined,
+        role: billingReadyUser.role,
+        onboardingCompleted: billingReadyUser.onboardingCompleted,
+        billingStatus: membership.status,
+        subscriptionPlan: membership.plan,
+        trialEndsAt: membership.trialEndsAt,
+        hasAthleteAccess: membership.hasAccess,
       };
     },
   }),
@@ -100,6 +112,11 @@ export const authOptions: NextAuthOptions = {
       user.image = appUser.image ?? user.image;
       user.role = appUser.role;
       user.onboardingCompleted = appUser.onboardingCompleted;
+      const membership = await getMembershipSnapshot(appUser.id);
+      user.billingStatus = membership.status;
+      user.subscriptionPlan = membership.plan;
+      user.trialEndsAt = membership.trialEndsAt;
+      user.hasAthleteAccess = membership.hasAccess;
 
       return true;
     },
@@ -108,17 +125,29 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.role = user.role;
         token.onboardingCompleted = user.onboardingCompleted;
+        token.billingStatus = user.billingStatus;
+        token.subscriptionPlan = user.subscriptionPlan;
+        token.trialEndsAt = user.trialEndsAt;
+        token.hasAthleteAccess = user.hasAthleteAccess;
         return token;
       }
 
-      if (!token.id && token.email) {
-        const appUser = await findUserByEmail(token.email);
+      const appUser = token.id
+        ? await findUserById(token.id)
+        : token.email
+          ? await findUserByEmail(token.email)
+          : null;
 
-        if (appUser) {
-          token.id = appUser.id;
-          token.role = appUser.role;
-          token.onboardingCompleted = appUser.onboardingCompleted;
-        }
+      if (appUser) {
+        const billingReadyUser = await ensureUserBillingState(appUser);
+        const membership = await getMembershipSnapshot(billingReadyUser.id);
+        token.id = billingReadyUser.id;
+        token.role = billingReadyUser.role;
+        token.onboardingCompleted = billingReadyUser.onboardingCompleted;
+        token.billingStatus = membership.status;
+        token.subscriptionPlan = membership.plan;
+        token.trialEndsAt = membership.trialEndsAt;
+        token.hasAthleteAccess = membership.hasAccess;
       }
 
       return token;
@@ -128,6 +157,10 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id ?? "";
         session.user.role = (token.role as typeof session.user.role) ?? "athlete";
         session.user.onboardingCompleted = Boolean(token.onboardingCompleted);
+        session.user.billingStatus = token.billingStatus ?? "trialing";
+        session.user.subscriptionPlan = token.subscriptionPlan ?? null;
+        session.user.trialEndsAt = token.trialEndsAt ?? null;
+        session.user.hasAthleteAccess = token.hasAthleteAccess ?? true;
       }
 
       return session;

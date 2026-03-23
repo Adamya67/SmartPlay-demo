@@ -14,6 +14,7 @@ import {
   createVideoAssetEntry,
   createVideoCommentEntry,
   createWellnessCheckEntry,
+  startPlayerMembership,
 } from "@/lib/data/service";
 
 export async function createSessionAction(
@@ -115,4 +116,12 @@ export async function createVideoCommentAction(
   revalidatePath("/app/coach/reviews");
   revalidatePath(`/app/coach/athletes/${result.athleteId}`);
   return result.comment;
+}
+
+export async function startPlayerMembershipAction() {
+  const session = await requireSession();
+  await startPlayerMembership(session.user.id);
+  revalidatePath("/app");
+  revalidatePath("/app/settings");
+  revalidatePath("/app/dashboard");
 }

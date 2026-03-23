@@ -14,6 +14,14 @@ export default withAuth(
       return NextResponse.redirect(new URL("/login", request.url));
     }
 
+    if (
+      role === "athlete" &&
+      token?.hasAthleteAccess === false &&
+      pathname !== "/app/settings"
+    ) {
+      return NextResponse.redirect(new URL("/app/settings?billing=required", request.url));
+    }
+
     return NextResponse.next();
   },
   {

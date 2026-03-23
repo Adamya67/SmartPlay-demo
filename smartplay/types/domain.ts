@@ -1,4 +1,6 @@
 export type AppRole = "athlete" | "coach" | "parent" | "admin";
+export type SubscriptionStatus = "trialing" | "active" | "expired";
+export type SubscriptionPlan = "player_monthly";
 
 export type SessionType =
   | "team_practice"
@@ -54,6 +56,12 @@ export interface AppUserRecord {
   linkedAthleteIds?: string[];
   profileCompletion: number;
   city?: string;
+  trialStartedAt?: string | null;
+  trialEndsAt?: string | null;
+  subscriptionStatus?: SubscriptionStatus | null;
+  subscriptionPlan?: SubscriptionPlan | null;
+  subscriptionPriceCents?: number | null;
+  subscriptionRenewsAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -48,7 +48,7 @@ export function HomeSections() {
         <SectionHeading
           eyebrow="Pricing"
           title="Flexible enough for individual athletes and access-driven programs"
-          description="Use placeholder pricing now, but structure the value proposition like a real product company."
+          description="Athlete billing is live as a $12/month Player Membership after a 14-day free trial. Coach and team pricing remain estimate-only for now."
         />
         <div className="mt-10 grid gap-4 lg:grid-cols-3">
           {pricingPlans.map((plan) => (
@@ -62,7 +62,9 @@ export function HomeSections() {
                 ))}
               </div>
               <div className="mt-8">
-                <Button variant="secondary">Choose {plan.name}</Button>
+                <Button variant="secondary">
+                  {plan.name === "Athlete" ? "Start athlete access" : `Estimate ${plan.name}`}
+                </Button>
               </div>
             </Card>
           ))}

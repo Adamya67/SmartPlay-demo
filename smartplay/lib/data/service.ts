@@ -20,8 +20,11 @@ import type {
   VideoAssetRecord,
   VideoCommentRecord,
   WellnessCheckRecord,
+  SubscriptionPlan,
+  SubscriptionStatus,
 } from "@/types/domain";
 import {
+  addDays,
   differenceInCalendarDays,
   endOfWeek,
   format,
@@ -99,6 +102,12 @@ const REPORT_SECTIONS = [
   "Mindset + reflection highlights",
 ];
 
+const PLAYER_MEMBERSHIP_PRICE_CENTS = 1200;
+const PLAYER_MEMBERSHIP_PRICE_LABEL = "$12/month";
+const TRIAL_LENGTH_DAYS = 14;
+const BILLING_CYCLE_DAYS = 30;
+const PLAYER_MEMBERSHIP_PLAN: SubscriptionPlan = "player_monthly";
+
 type AthleteContext = {
   user: AppUserRecord;
   profile: DemoDatabase["athleteProfiles"][number];
@@ -120,6 +129,23 @@ type AthleteContext = {
   aiInsights: AIInsightRecord[];
   notifications: DemoDatabase["notifications"];
   badges: DemoDatabase["achievementBadges"];
+};
+
+export type MembershipSnapshot = {
+  role: AppRole;
+  requiresMembership: boolean;
+  hasAccess: boolean;
+  status: SubscriptionStatus;
+  plan: SubscriptionPlan | null;
+  trialStartedAt: string | null;
+  trialEndsAt: string | null;
+  subscriptionRenewsAt: string | null;
+  subscriptionPriceCents: number;
+  subscriptionPriceLabel: string;
+  daysRemaining: number;
+  headline: string;
+  detail: string;
+  ctaLabel: string;
 };
 
 function clamp(value: number, min = 0, max = 100) {
@@ -187,6 +213,122 @@ function asPrismaJson(value: unknown) {
 
 function iso(value: Date) {
   return value.toISOString();
+}
+
+function asNullableIso(value?: string | Date | null) {
+  if (!value) {
+    return null;
+  }
+
+  return typeof value === "string" ? value : value.toISOString();
+}
+
+function calculateTrialDates(base = new Date()) {
+  const trialStartedAt = iso(base);
+  const trialEndsAt = iso(addDays(base, TRIAL_LENGTH_DAYS));
+  return { trialStartedAt, trialEndsAt };
+}
+
+function getBillingRenewalDate(user: AppUserRecord) {
+  if (!user.subscriptionRenewsAt) {
+    return null;
+  }
+
+  return parseISO(user.subscriptionRenewsAt);
+}
+
+function getTrialEndDate(user: AppUserRecord) {
+  if (!user.trialEndsAt) {
+    return null;
+  }
+
+  return parseISO(user.trialEndsAt);
+}
+
+function buildMembershipSnapshot(user: AppUserRecord): MembershipSnapshot {
+  if (user.role !== "athlete") {
+    return {
+      role: user.role,
+      requiresMembership: false,
+      hasAccess: true,
+      status: "active",
+      plan: null,
+      trialStartedAt: user.trialStartedAt ?? null,
+      trialEndsAt: user.trialEndsAt ?? null,
+      subscriptionRenewsAt: user.subscriptionRenewsAt ?? null,
+      subscriptionPriceCents: PLAYER_MEMBERSHIP_PRICE_CENTS,
+      subscriptionPriceLabel: PLAYER_MEMBERSHIP_PRICE_LABEL,
+      daysRemaining: 0,
+      headline: "Billing not required",
+      detail: "Athlete memberships are the only paid plan right now. Coach, parent, and admin access stay estimate-only.",
+      ctaLabel: "Athlete plan only",
+    };
+  }
+
+  const now = new Date();
+  const trialEndsAt = getTrialEndDate(user);
+  const renewsAt = getBillingRenewalDate(user);
+
+  if (
+    user.subscriptionStatus === "active" &&
+    renewsAt &&
+    isAfter(renewsAt, now)
+  ) {
+    return {
+      role: user.role,
+      requiresMembership: true,
+      hasAccess: true,
+      status: "active",
+      plan: user.subscriptionPlan ?? PLAYER_MEMBERSHIP_PLAN,
+      trialStartedAt: user.trialStartedAt ?? null,
+      trialEndsAt: user.trialEndsAt ?? null,
+      subscriptionRenewsAt: user.subscriptionRenewsAt ?? null,
+      subscriptionPriceCents: user.subscriptionPriceCents ?? PLAYER_MEMBERSHIP_PRICE_CENTS,
+      subscriptionPriceLabel: PLAYER_MEMBERSHIP_PRICE_LABEL,
+      daysRemaining: Math.max(0, differenceInCalendarDays(renewsAt, now)),
+      headline: "Player Membership active",
+      detail: `Your athlete access is active on the ${PLAYER_MEMBERSHIP_PRICE_LABEL} plan.`,
+      ctaLabel: "Manage membership",
+    };
+  }
+
+  if (trialEndsAt && isAfter(trialEndsAt, now)) {
+    const daysRemaining = Math.max(1, differenceInCalendarDays(trialEndsAt, now));
+
+    return {
+      role: user.role,
+      requiresMembership: true,
+      hasAccess: true,
+      status: "trialing",
+      plan: user.subscriptionPlan ?? null,
+      trialStartedAt: user.trialStartedAt ?? null,
+      trialEndsAt: user.trialEndsAt ?? null,
+      subscriptionRenewsAt: user.subscriptionRenewsAt ?? null,
+      subscriptionPriceCents: PLAYER_MEMBERSHIP_PRICE_CENTS,
+      subscriptionPriceLabel: PLAYER_MEMBERSHIP_PRICE_LABEL,
+      daysRemaining,
+      headline: `${daysRemaining} day${daysRemaining === 1 ? "" : "s"} left in your free trial`,
+      detail: `Athlete access is free for ${TRIAL_LENGTH_DAYS} days, then ${PLAYER_MEMBERSHIP_PRICE_LABEL}.`,
+      ctaLabel: "Start player membership",
+    };
+  }
+
+  return {
+    role: user.role,
+    requiresMembership: true,
+    hasAccess: false,
+    status: "expired",
+    plan: user.subscriptionPlan ?? null,
+    trialStartedAt: user.trialStartedAt ?? null,
+    trialEndsAt: user.trialEndsAt ?? null,
+    subscriptionRenewsAt: user.subscriptionRenewsAt ?? null,
+    subscriptionPriceCents: PLAYER_MEMBERSHIP_PRICE_CENTS,
+    subscriptionPriceLabel: PLAYER_MEMBERSHIP_PRICE_LABEL,
+    daysRemaining: 0,
+    headline: "Free trial ended",
+    detail: `Upgrade to Player Membership for ${PLAYER_MEMBERSHIP_PRICE_LABEL} to keep using SmartPlay.`,
+    ctaLabel: "Unlock athlete access",
+  };
 }
 
 function toStringList(value: unknown, fallback: string[]) {
@@ -320,6 +462,14 @@ async function persistUserWithRoleProfile(
         ...user,
         image: user.image ?? null,
         linkedAthleteIds: user.linkedAthleteIds ?? Prisma.JsonNull,
+        trialStartedAt: user.trialStartedAt ? new Date(user.trialStartedAt) : null,
+        trialEndsAt: user.trialEndsAt ? new Date(user.trialEndsAt) : null,
+        subscriptionStatus: user.subscriptionStatus ?? null,
+        subscriptionPlan: user.subscriptionPlan ?? null,
+        subscriptionPriceCents: user.subscriptionPriceCents ?? null,
+        subscriptionRenewsAt: user.subscriptionRenewsAt
+          ? new Date(user.subscriptionRenewsAt)
+          : null,
         createdAt: new Date(user.createdAt),
         updatedAt: new Date(user.updatedAt),
       },
@@ -357,6 +507,111 @@ async function persistUserWithRoleProfile(
         },
       });
     }
+  });
+}
+
+async function updateUserRecord(
+  userId: string,
+  updates: Partial<AppUserRecord>,
+) {
+  if (isDemoMode()) {
+    const database = await readDemoDatabase();
+    const index = database.users.findIndex((entry) => entry.id === userId);
+
+    if (index === -1) {
+      throw new Error("User not found.");
+    }
+
+    database.users[index] = {
+      ...database.users[index],
+      ...updates,
+      updatedAt: updates.updatedAt ?? new Date().toISOString(),
+    };
+    await writeDemoDatabase(database);
+    return database.users[index];
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      name: updates.name,
+      email: updates.email,
+      passwordHash: updates.passwordHash,
+      image: updates.image ?? undefined,
+      role: updates.role,
+      onboardingCompleted: updates.onboardingCompleted,
+      linkedAthleteIds:
+        updates.linkedAthleteIds === undefined
+          ? undefined
+          : updates.linkedAthleteIds ?? Prisma.JsonNull,
+      profileCompletion: updates.profileCompletion,
+      city: updates.city ?? undefined,
+      trialStartedAt:
+        updates.trialStartedAt === undefined
+          ? undefined
+          : updates.trialStartedAt
+            ? new Date(updates.trialStartedAt)
+            : null,
+      trialEndsAt:
+        updates.trialEndsAt === undefined
+          ? undefined
+          : updates.trialEndsAt
+            ? new Date(updates.trialEndsAt)
+            : null,
+      subscriptionStatus:
+        updates.subscriptionStatus === undefined ? undefined : updates.subscriptionStatus,
+      subscriptionPlan:
+        updates.subscriptionPlan === undefined ? undefined : updates.subscriptionPlan,
+      subscriptionPriceCents:
+        updates.subscriptionPriceCents === undefined
+          ? undefined
+          : updates.subscriptionPriceCents,
+      subscriptionRenewsAt:
+        updates.subscriptionRenewsAt === undefined
+          ? undefined
+          : updates.subscriptionRenewsAt
+            ? new Date(updates.subscriptionRenewsAt)
+            : null,
+      updatedAt: updates.updatedAt ? new Date(updates.updatedAt) : undefined,
+    },
+  });
+
+  return {
+    ...updated,
+    image: updated.image ?? null,
+    linkedAthleteIds: asStringArray(updated.linkedAthleteIds),
+    city: updated.city ?? undefined,
+    trialStartedAt: asNullableIso(updated.trialStartedAt),
+    trialEndsAt: asNullableIso(updated.trialEndsAt),
+    subscriptionStatus: (updated.subscriptionStatus as SubscriptionStatus | null) ?? null,
+    subscriptionPlan: (updated.subscriptionPlan as SubscriptionPlan | null) ?? null,
+    subscriptionPriceCents: updated.subscriptionPriceCents ?? null,
+    subscriptionRenewsAt: asNullableIso(updated.subscriptionRenewsAt),
+    createdAt: iso(updated.createdAt),
+    updatedAt: iso(updated.updatedAt),
+  };
+}
+
+export async function ensureUserBillingState(userOrId: AppUserRecord | string) {
+  const user =
+    typeof userOrId === "string" ? await findUserById(userOrId) : userOrId;
+
+  if (!user) {
+    throw new Error("User not found.");
+  }
+
+  if (user.trialStartedAt && user.trialEndsAt) {
+    return user;
+  }
+
+  const now = new Date();
+  const trial = calculateTrialDates(now);
+
+  return updateUserRecord(user.id, {
+    trialStartedAt: trial.trialStartedAt,
+    trialEndsAt: trial.trialEndsAt,
+    subscriptionStatus: user.subscriptionStatus ?? "trialing",
+    updatedAt: iso(now),
   });
 }
 
@@ -531,6 +786,12 @@ async function loadDatabaseFromPrisma(): Promise<DemoDatabase> {
       image: user.image ?? null,
       linkedAthleteIds: asStringArray(user.linkedAthleteIds),
       city: user.city ?? undefined,
+      trialStartedAt: asNullableIso(user.trialStartedAt),
+      trialEndsAt: asNullableIso(user.trialEndsAt),
+      subscriptionStatus: (user.subscriptionStatus as SubscriptionStatus | null) ?? null,
+      subscriptionPlan: (user.subscriptionPlan as SubscriptionPlan | null) ?? null,
+      subscriptionPriceCents: user.subscriptionPriceCents ?? null,
+      subscriptionRenewsAt: asNullableIso(user.subscriptionRenewsAt),
       createdAt: iso(user.createdAt),
       updatedAt: iso(user.updatedAt),
     })),
@@ -1279,6 +1540,7 @@ async function buildAthleteWorkspaceFromContext(context: AthleteContext) {
         { label: "Coach comments", enabled: true },
         { label: "Wellness reminders", enabled: true },
       ],
+      membership: buildMembershipSnapshot(context.user),
       rolePermissions:
         "Athlete controls personal profile sharing. Parent and coach views are permission-aware.",
       units: "Metric + US mixed",
@@ -1374,6 +1636,34 @@ export async function findUserByEmail(email: string) {
 export async function findUserById(userId: string) {
   const database = await readDatabase();
   return database.users.find((user) => user.id === userId) ?? null;
+}
+
+export async function getMembershipSnapshot(userId: string) {
+  const user = await ensureUserBillingState(userId);
+  return buildMembershipSnapshot(user);
+}
+
+export async function startPlayerMembership(userId: string) {
+  const user = await ensureUserBillingState(userId);
+
+  if (user.role !== "athlete") {
+    throw new Error("Only athlete accounts can start Player Membership.");
+  }
+
+  const now = new Date();
+  const currentRenewal = getBillingRenewalDate(user);
+  const billingAnchor =
+    currentRenewal && isAfter(currentRenewal, now) ? currentRenewal : now;
+
+  const updatedUser = await updateUserRecord(user.id, {
+    subscriptionStatus: "active",
+    subscriptionPlan: PLAYER_MEMBERSHIP_PLAN,
+    subscriptionPriceCents: PLAYER_MEMBERSHIP_PRICE_CENTS,
+    subscriptionRenewsAt: iso(addDays(billingAnchor, BILLING_CYCLE_DAYS)),
+    updatedAt: iso(now),
+  });
+
+  return buildMembershipSnapshot(updatedUser);
 }
 
 export async function getAthleteWorkspace(userId: string) {
@@ -1620,6 +1910,7 @@ export async function registerUser(input: RegisterInput) {
   const passwordHash = await bcrypt.hash(input.password, 10);
   const userId = makeId("user");
   const createdAt = new Date().toISOString();
+  const trial = calculateTrialDates(new Date(createdAt));
   const newUser: AppUserRecord = {
     id: userId,
     name: input.name,
@@ -1630,6 +1921,12 @@ export async function registerUser(input: RegisterInput) {
     linkedAthleteIds: input.role === "parent" ? [] : undefined,
     profileCompletion: 72,
     city: input.city,
+    trialStartedAt: trial.trialStartedAt,
+    trialEndsAt: trial.trialEndsAt,
+    subscriptionStatus: "trialing",
+    subscriptionPlan: null,
+    subscriptionPriceCents: null,
+    subscriptionRenewsAt: null,
     createdAt,
     updatedAt: createdAt,
   };
@@ -1647,11 +1944,13 @@ export async function ensureGoogleUser(input: {
   const existingUser = await findUserByEmail(input.email);
 
   if (existingUser) {
-    await ensureUserRoleProfile(existingUser);
-    return existingUser;
+    const billingReadyUser = await ensureUserBillingState(existingUser);
+    await ensureUserRoleProfile(billingReadyUser);
+    return billingReadyUser;
   }
 
   const createdAt = new Date().toISOString();
+  const trial = calculateTrialDates(new Date(createdAt));
   const newUser: AppUserRecord = {
     id: makeId("user"),
     name: input.name?.trim() || input.email.split("@")[0],
@@ -1663,6 +1962,12 @@ export async function ensureGoogleUser(input: {
     linkedAthleteIds: undefined,
     profileCompletion: 24,
     city: undefined,
+    trialStartedAt: trial.trialStartedAt,
+    trialEndsAt: trial.trialEndsAt,
+    subscriptionStatus: "trialing",
+    subscriptionPlan: null,
+    subscriptionPriceCents: null,
+    subscriptionRenewsAt: null,
     createdAt,
     updatedAt: createdAt,
   };

@@ -105,6 +105,12 @@ model User {
   linkedAthleteIds    Json?
   profileCompletion   Int                @default(0)
   city                String?
+  trialStartedAt      DateTime?
+  trialEndsAt         DateTime?
+  subscriptionStatus  String?
+  subscriptionPlan    String?
+  subscriptionPriceCents Int?
+  subscriptionRenewsAt DateTime?
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
   athleteProfile      AthleteProfile?

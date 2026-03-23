@@ -13,7 +13,7 @@ export default function PricingPage() {
         <SectionHeading
           eyebrow="Pricing"
           title="Affordable access to elite-style tools"
-          description="Positioned for individuals, teams, schools, and nonprofits with a clear access-first story."
+          description="Player Membership is live for athletes. Coach, team, and community pricing stay estimate-only while the athlete plan launches first."
         />
         <div className="mt-12 grid gap-6 lg:grid-cols-3">
           {pricingPlans.map((plan) => (
@@ -29,7 +29,9 @@ export default function PricingPage() {
                 ))}
               </div>
               <div className="mt-8">
-                <Button variant="secondary">Talk to SmartPlay</Button>
+                <Button variant="secondary">
+                  {plan.name === "Athlete" ? "Start athlete access" : "Talk to SmartPlay"}
+                </Button>
               </div>
             </Card>
           ))}
